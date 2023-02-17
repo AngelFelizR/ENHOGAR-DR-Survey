@@ -20,7 +20,7 @@ Dia de nacimiento,nacimiento_day
 Mes de nacimiento,nacimiento_month
 Año de nacimiento,nacimiento_year
 ¿Cuál es la relación de parentesco de (nombre) con el jefe o jefa del hogar?,parentesco_jefe
-"¿Tiene (nombre) acta de nacimiento, es decir, está declarado(a)?",fue_declarado
+"¿Tiene (nombre) acta de nacimiento, es decir, está declarado(a)?",tiene_acta_de_nacimiento
 ¿Actualmente está (nombre)...,estado_civil
 ¿Ha sido (nombre) vacunado contra el Covid-19?,tiene_covid-19_vacuna
 ¿Cuántas dósis de la vacuna contra el Covid-19 ha recibido (nombre) hasta ahora?,nun_covid-19_vacunas
@@ -33,7 +33,7 @@ Año de nacimiento,nacimiento_year
 "¿Tiene (nombre) dificultad con su cuidado personal, como bañarse o vestirse?",dificultad_para_cuidado_personal
 "Usando su idioma habitual, ¿Tiene (nombre) dificultad para comunicarse, por ejemplo, para entender o hacerse entender?",dificultad_comunicarse
 ¿Sabe (nombre) leer y escribir?,sabe_leer
-"¿Asiste actualmente o asistió (nombre) a una escuela, colegio, universidad o algún programa de educación para la primera infancia?",tiene_educacion_primaria
+"¿Asiste actualmente o asistió (nombre) a una escuela, colegio, universidad o algún programa de educación para la primera infancia?",asiste_a_escuela
 "¿Por qué razón nunca ha asistido (nombre) a la escuela, Colegio o algún programa para la primera infancia?",razon_carencia_educativa
 ¿Cuál es el nivel educativo más alto al que asiste o asistió (nombre)?,nivel_educativo
 ¿Cuál es el curso o año más alto que completó (nombre) en ese nivel?,curso_escolar_mas_alto
