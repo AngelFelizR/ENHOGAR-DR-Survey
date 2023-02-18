@@ -11,25 +11,114 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(ggplot2)
+library(scales)
+library(forcats)
+
+theme_set(theme_light())
+```
+
+## Entamos nuestro grupo de interes
+
+```{r}
+melt(Personas2021[!is.na(edad_entrevista)], 
+     id.vars = c("id", "edad_entrevista"), 
+     measure.vars = patterns("dificult"),
+     na.rm = TRUE, variable.factor = TRUE,
+     value.name = "nivel_dificultad") |>
+ggplot(aes(nivel_dificultad, edad_entrevista))+
+  geom_boxplot(aes(fill = nivel_dificultad), alpha = .4)+
+  facet_wrap(~variable)+
+  labs(title = "Relacion de edad y las dificultades corporales")+
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"),
+        axis.text.x = element_text(angle = 25))
+
+```
+
+
+## ¿Dónde vive la gente sorda?
+
+En todas las comunidades los sordos son menos del 0.25% de la poblacion
+
+```{r}
+PersonasSolderaConfirm[, .(prop_lectura = mean(Sordera)), 
+                       by = .(region_planificacion = fct_reorder(region_planificacion, Sordera, sum))] |>
+  ggplot(aes(prop_lectura, region_planificacion))+
+  geom_col()+
+  scale_x_continuous(labels = percent_format(accuracy = 0.01))
+```
+
+## ¿La gente sorda sabe leer?
+
+```{r}
+PersonasSolderaConfirm[Sordera==TRUE, 
+                       .(prop_lectura = mean(sabe_leer == "Si")), 
+                       by = c("residencia_zona")] |>
+  ggplot(aes(residencia_zona, prop_lectura))+
+  geom_col(fill = "blue", alpha = 0.6, width = 0.5)+
+  expand_limits(y = 1)+
+  scale_y_continuous(labels = percent_format(accuracy = 1),
+                     breaks = breaks_width(0.1))+
+  labs(title = paste0("¿Los sordos saben leer?"))+
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "top")
 
 ```
 
 
 ```{r}
 
-Personas2021[, .N, 
-             .(total_hogares_vivienda)]
+ggplot(Personas2021[!is.na( `grupo_socio-economico`) & 
+                      !is.na(edad_entrevista) &
+                      !is.na(nivel_educativo)], 
+       aes( `grupo_socio-economico`, edad_entrevista))+
+  geom_boxplot(aes(fill =  `grupo_socio-economico`), alpha = .4)+
+  facet_wrap(~nivel_educativo, scales = "free_y")+
+  labs(title = "Relacion de edad y las dificultades corporales")+
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"),
+        axis.text.x = element_text(angle = 25))
 
-copy(Personas2021)[, nun_hogar_higher := sum(nun_hogar > 0),
-                   keyby = .(unidad_primera_muestra,
-                             nun_vivienda_muestra,
-                             nun_persona_en_hogar)
-][nun_hogar_higher > 0]
 
-Personas2021[, N := .N,
-             .(unidad_primera_muestra,
-               nun_vivienda_muestra,
-               nun_persona_en_hogar) 
-             ][N == 2]
+```
+
+```{r}
+Personas2021[ !is.na(`grupo_socio-economico`) & 
+               nivel_educativo != "No sabe" &
+               edad_entrevista <= 70 &
+               !is.na(dificultad_para_oir),
+             .(total_medio_alto = sum(`grupo_socio-economico` %in% c("Medio y Medio alto", "Alto")),
+               prop_medio_alto = mean(`grupo_socio-economico` %in% c("Medio y Medio alto", "Alto"))),
+             by = .(nivel_educativo, 
+                    edad_grupo = cut(edad_entrevista, 
+                                     breaks = seq(0, 200, by = 10)),
+                    `Sordera` = dificultad_para_oir == "04 - Imposible")] |>
+  ggplot(aes(edad_grupo, prop_medio_alto, 
+             color = nivel_educativo,
+             group = nivel_educativo))+
+  geom_point()+
+  geom_line()+
+  geom_text(aes(label = comma(total_medio_alto, accuracy = 1)), vjust = 1.2)+
+  scale_y_continuous(labels = percent_format(accuracy = 1), 
+                     breaks = breaks_width(0.20))+
+  expand_limits(y = 1)+
+  facet_wrap(~`Sordera`, labeller = "label_both" )+
+  labs(title = "No tiene mucho acceso a la educacion superior")+
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+Si no van a la univeridad, ¿que hacen?
+
+```{r}
+Personas2021[!is.na(tipo_empleo) &
+               !is.na(dificultad_para_oir), .N,
+             .(`Sordera` = dificultad_para_oir == "04 - Imposible",
+               tipo_empleo)] |>
+  ggplot(aes(tipo_empleo, N))+
+  geom_col()+
+  coord_flip()+
+  facet_wrap(~Sordera, scales = "free")
 ```
 
