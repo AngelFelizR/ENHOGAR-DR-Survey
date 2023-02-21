@@ -170,6 +170,9 @@ Personas2021[,`:=`(id = .I,
                       time_length(unit = "year"),
                    `Sordera` = dificultad_para_oir == "04 - Imposible")]
 
+Personas2021[, edad_grupo := cut(edad_entrevista, 
+                                 breaks = seq(0, 200, by = 10))]
+
 
 # Filtering data to study ----
 
@@ -184,7 +187,7 @@ if(RenderReport){
   if(!any(dir() == "output")) dir.create("output")
   
   rmarkdown::render(input = "R/final-report.Rmd",
-                    output_file = "Final Presentation.html",
+                    output_file = "sordos-eduacion.html",
                     output_dir = "output",
                     envir = .GlobalEnv)
   

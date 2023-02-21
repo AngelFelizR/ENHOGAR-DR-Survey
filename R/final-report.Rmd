@@ -1,124 +1,164 @@
 ---
-title: "Final Report"
+title: "Acceso a la eduación por personas sordas en la República Dominicana"
 author: "Angel Feliz"
 date: "`r Sys.Date()`"
-output: html_document
+output: html_document  
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+# Importing libraries to plot
+
+```{r libraries}
 library(ggplot2)
 library(scales)
 library(forcats)
+library(infer)
 
 theme_set(theme_light())
+PlotCaption <- "Data souce: ONE Rep. Dom, ENHOGAR 2021"
 ```
 
-## Entamos nuestro grupo de interes
+## Proporción de personas sordas en el país
 
-```{r}
-melt(Personas2021[!is.na(edad_entrevista)], 
-     id.vars = c("id", "edad_entrevista"), 
-     measure.vars = patterns("dificult"),
-     na.rm = TRUE, variable.factor = TRUE,
-     value.name = "nivel_dificultad") |>
-ggplot(aes(nivel_dificultad, edad_entrevista))+
-  geom_boxplot(aes(fill = nivel_dificultad), alpha = .4)+
-  facet_wrap(~variable)+
-  labs(title = "Relacion de edad y las dificultades corporales")+
-  theme(legend.position = "none",
-        plot.title = element_text(face = "bold"),
-        axis.text.x = element_text(angle = 25))
+Basandos en datos de la ONE, somos 10,448,499, por lo que el total de sordos sería entre `r comma(10448499 * 0.0014)` y `r comma(10448499 * 0.0019)`.
 
+```{r bootstrap-prop}
+set.seed(123)
+
+PropSordosBootstrap <-
+  PersonasSolderaConfirm |>
+  specify(Sordera~NULL, success = "TRUE") |>
+  generate(reps = 2000, type = "bootstrap") |>
+  calculate(stat = "prop")
+
+
+BootstrapCi <-
+  get_ci(PropSordosBootstrap,
+         level = 0.95,
+         type = "percentile")
+
+
+visualize(PropSordosBootstrap)+
+  shade_ci(endpoints = BootstrapCi,
+           fill = "#2C77BF",
+           color = "#2C77BF")+
+  scale_x_continuous(labels = percent_format(accuracy = 0.01),
+                     breaks = unlist(BootstrapCi))+
+  labs(title = "Proporción personas sordas con 95% de confianza",
+       subtitle = "Basado en simulación de 2000 réplicas",
+       y = "Número de Remuestreos",
+       x = "Proporción de sordos",
+       caption = PlotCaption)
 ```
 
 
-## ¿Dónde vive la gente sorda?
-
-En todas las comunidades los sordos son menos del 0.25% de la poblacion
+## Capacidad para leer según grupo de edad
 
 ```{r}
-PersonasSolderaConfirm[, .(prop_lectura = mean(Sordera)), 
-                       by = .(region_planificacion = fct_reorder(region_planificacion, Sordera, sum))] |>
-  ggplot(aes(prop_lectura, region_planificacion))+
-  geom_col()+
-  scale_x_continuous(labels = percent_format(accuracy = 0.01))
-```
 
-## ¿La gente sorda sabe leer?
+ReadAgeGroup <-
+  PersonasSolderaConfirm[,.(sabe_leer = 0.5 + sum(sabe_leer == "Si", na.rm = TRUE),
+                            no_sabe_leer = 0.5 + sum(sabe_leer == "No", na.rm = TRUE)),
+                         by = .(edad_grupo,
+                                Sordera = fifelse(Sordera == TRUE, "Si", "No"))
+  ][, `:=`(sabe_leer_prop = sabe_leer / (sabe_leer + no_sabe_leer),
+           low = qbeta(0.025, sabe_leer, no_sabe_leer),
+           high = qbeta(0.975, sabe_leer, no_sabe_leer))][] 
 
-```{r}
-PersonasSolderaConfirm[Sordera==TRUE, 
-                       .(prop_lectura = mean(sabe_leer == "Si")), 
-                       by = c("residencia_zona")] |>
-  ggplot(aes(residencia_zona, prop_lectura))+
-  geom_col(fill = "blue", alpha = 0.6, width = 0.5)+
-  expand_limits(y = 1)+
+AgeGroupLabels <-
+  as.character(ReadAgeGroup$edad_grupo) |> 
+  na.omit() |>
+  unique()
+
+names(AgeGroupLabels) <- 
+  as.integer(ReadAgeGroup$edad_grupo) |> 
+  na.omit() |>
+  unique() |>
+  str_pad(2, pad = "0")
+
+AgeGroupLabels <- AgeGroupLabels[sort(names(AgeGroupLabels))]
+
+ggplot(ReadAgeGroup,
+       aes(as.integer(edad_grupo), sabe_leer_prop, color = Sordera))+
+  geom_ribbon(aes(ymin = low, ymax = high), fill = "grey95")+
+  geom_line()+
+  geom_point()+
+  expand_limits(y = 0)+
   scale_y_continuous(labels = percent_format(accuracy = 1),
                      breaks = breaks_width(0.1))+
-  labs(title = paste0("¿Los sordos saben leer?"))+
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major.x = element_blank(),
+  scale_x_continuous(labels = \(x) AgeGroupLabels[x],
+                     breaks = breaks_width(2))+
+  labs(title = "Las personas con sordera saben leer menos",
+       subtitle = "La diferencia es significativa para personas entre 10 y 40 años",
+       y = "Proporción de personas con sordera",
+       x = "Grupo de edad",
+       caption = PlotCaption)+
+  theme(panel.grid.minor.y = element_blank(),
         legend.position = "top")
 
 ```
 
 
-```{r}
-
-ggplot(Personas2021[!is.na( `grupo_socio-economico`) & 
-                      !is.na(edad_entrevista) &
-                      !is.na(nivel_educativo)], 
-       aes( `grupo_socio-economico`, edad_entrevista))+
-  geom_boxplot(aes(fill =  `grupo_socio-economico`), alpha = .4)+
-  facet_wrap(~nivel_educativo, scales = "free_y")+
-  labs(title = "Relacion de edad y las dificultades corporales")+
-  theme(legend.position = "none",
-        plot.title = element_text(face = "bold"),
-        axis.text.x = element_text(angle = 25))
-
-
-```
+## Importancia de los estudios sobre nivel de vida
 
 ```{r}
 Personas2021[ !is.na(`grupo_socio-economico`) & 
                nivel_educativo != "No sabe" &
-               edad_entrevista <= 70 &
-               !is.na(dificultad_para_oir),
+               edad_entrevista %between% c(10,90),
              .(total_medio_alto = sum(`grupo_socio-economico` %in% c("Medio y Medio alto", "Alto")),
                prop_medio_alto = mean(`grupo_socio-economico` %in% c("Medio y Medio alto", "Alto"))),
              by = .(nivel_educativo, 
-                    edad_grupo = cut(edad_entrevista, 
-                                     breaks = seq(0, 200, by = 10)),
-                    `Sordera` = dificultad_para_oir == "04 - Imposible")] |>
+                    edad_grupo)
+  ][total_medio_alto >= 10] |>
   ggplot(aes(edad_grupo, prop_medio_alto, 
              color = nivel_educativo,
              group = nivel_educativo))+
   geom_point()+
   geom_line()+
-  geom_text(aes(label = comma(total_medio_alto, accuracy = 1)), vjust = 1.2)+
+  geom_text(aes(label = comma(total_medio_alto, accuracy = 1)), 
+            vjust = 1.2,
+            check_overlap = TRUE)+
   scale_y_continuous(labels = percent_format(accuracy = 1), 
                      breaks = breaks_width(0.20))+
   expand_limits(y = 1)+
-  facet_wrap(~`Sordera`, labeller = "label_both" )+
-  labs(title = "No tiene mucho acceso a la educacion superior")+
-  theme(legend.position = "top",
-        plot.title = element_text(face = "bold"))
+  labs(title = "Educación como llave a clase media",
+       x = "Grupo de edad",
+       y = "Porporción de personas en clase media o alta",
+       caption = PlotCaption)+
+  theme(legend.position = "top")
 ```
 
-Si no van a la univeridad, ¿que hacen?
+## Distribución de nivel educativo alcanzado por sordos
 
 ```{r}
-Personas2021[!is.na(tipo_empleo) &
-               !is.na(dificultad_para_oir), .N,
-             .(`Sordera` = dificultad_para_oir == "04 - Imposible",
-               tipo_empleo)] |>
-  ggplot(aes(tipo_empleo, N))+
-  geom_col()+
-  coord_flip()+
-  facet_wrap(~Sordera, scales = "free")
+
+PersonasSolderaConfirm[edad_entrevista > 10 &
+                         edad_entrevista <= 40 &
+                         sabe_leer == "Si",
+                       .N,
+                       by = c("Sordera", "nivel_educativo")
+  ][, prop := N / sum(N, na.rm = TRUE),
+    by = "Sordera"] |>
+  na.omit() |>
+  ggplot(aes( prop, nivel_educativo, fill = Sordera))+
+  geom_col(position = position_dodge2(preserve = "single"))+
+  scale_x_continuous(labels = percent_format(accuracy = 1),
+                     breaks = breaks_width(0.20))+
+  expand_limits(x = 1)+
+    labs(title = "La mayoría de personas sordas que saben leer sólo tienen un nivel básico",
+       subtitle = "Mientras que para el resto de personas el nivel más común es la secundaria",
+       x = "Proporción de personas que saben leer",
+       y = "Nivel Educativo",
+       caption = PlotCaption)+
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        legend.position = "top")
+
 ```
 
+## ¿Que dicen lo que no saben leer?
+
+## ¿que tienen el comun los ciegos de cada nivel? (ML)
